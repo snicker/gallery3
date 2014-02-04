@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,12 +66,12 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
   }
 
   public function rename_photo_test() {
-    $item = test::random_photo();
+    $item = test::random_unique_photo();
     $original_name = $item->name;
 
-    file_put_contents($item->thumb_path(), "thumb");
-    file_put_contents($item->resize_path(), "resize");
-    file_put_contents($item->file_path(), "file");
+    $thumb_file = file_get_contents($item->thumb_path());
+    $resize_file = file_get_contents($item->resize_path());
+    $fullsize_file = file_get_contents($item->file_path());
 
     // Now rename it
     $item->name = ($new_name = test::random_name($item));
@@ -82,19 +82,19 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $this->assert_equal($new_name, basename($item->file_path()));
     $this->assert_equal($new_name, basename($item->thumb_path()));
     $this->assert_equal($new_name, basename($item->resize_path()));
-    $this->assert_equal("thumb", file_get_contents($item->thumb_path()));
-    $this->assert_equal("resize", file_get_contents($item->resize_path()));
-    $this->assert_equal("file", file_get_contents($item->file_path()));
+    $this->assert_equal($thumb_file, file_get_contents($item->thumb_path()));
+    $this->assert_equal($resize_file, file_get_contents($item->resize_path()));
+    $this->assert_equal($fullsize_file, file_get_contents($item->file_path()));
   }
 
   public function rename_album_test() {
     $album = test::random_album();
-    $photo = test::random_photo($album);
+    $photo = test::random_unique_photo($album);
     $album->reload();
 
-    file_put_contents($photo->thumb_path(), "thumb");
-    file_put_contents($photo->resize_path(), "resize");
-    file_put_contents($photo->file_path(), "file");
+    $thumb_file = file_get_contents($photo->thumb_path());
+    $resize_file = file_get_contents($photo->resize_path());
+    $fullsize_file = file_get_contents($photo->file_path());
 
     $original_album_name = $album->name;
     $original_photo_name = $photo->name;
@@ -119,44 +119,139 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $this->assert_true(test::starts_with($photo->thumb_path(), dirname($album->thumb_path())));
     $this->assert_true(test::starts_with($photo->resize_path(), dirname($album->resize_path())));
 
-    $this->assert_equal("thumb", file_get_contents($photo->thumb_path()));
-    $this->assert_equal("resize", file_get_contents($photo->resize_path()));
-    $this->assert_equal("file", file_get_contents($photo->file_path()));
+    $this->assert_equal($thumb_file, file_get_contents($photo->thumb_path()));
+    $this->assert_equal($resize_file, file_get_contents($photo->resize_path()));
+    $this->assert_equal($fullsize_file, file_get_contents($photo->file_path()));
   }
 
-  public function item_rename_wont_accept_slash_test() {
-    $item = test::random_photo();
+  public function photo_rename_wont_accept_slash_test() {
+    $item = test::random_photo_unsaved();
+    $item->name = "/no_slashes/allowed/";
+    // Should fail on validate.
     try {
-      $item->name = test::random_name() . "/";
-      $item->save();
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
     } catch (ORM_Validation_Exception $e) {
-      $this->assert_equal(array("name" => "no_slashes"), $e->validation->errors());
-      return;
+      $errors = $e->validation->errors();
+      $this->assert_same("no_slashes", $errors["name"]);
     }
-    $this->assert_true(false, "Shouldn't get here");
+    // Should be corrected on save.
+    $item->save();
+    $this->assert_equal("no_slashes_allowed.jpg", $item->name);
+    // Should be corrected on update.
+    $item->name = "/no_slashes/allowed/";
+    $item->save();
+    $this->assert_equal("no_slashes_allowed.jpg", $item->name);
   }
 
-  public function item_rename_over_existing_name_gets_uniqified_test() {
-    // Create a test photo
-    $item = test::random_photo();
-    $item2 = test::random_photo();
-
-    $item->name = $item2->name;
+  public function photo_rename_wont_accept_backslash_test() {
+    $item = test::random_photo_unsaved();
+    $item->name = "\\no_backslashes\\allowed\\";
+    // Should fail on validate.
+    try {
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
+    } catch (ORM_Validation_Exception $e) {
+      $errors = $e->validation->errors();
+      $this->assert_same("no_backslashes", $errors["name"]);
+    }
+    // Should be corrected on save.
     $item->save();
+    $this->assert_equal("no_backslashes_allowed.jpg", $item->name);
+    // Should be corrected on update.
+    $item->name = "\\no_backslashes\\allowed\\";
+    $item->save();
+    $this->assert_equal("no_backslashes_allowed.jpg", $item->name);
+  }
 
-    // foo.jpg should become foo-####.jpg
-    $this->assert_true(
-      preg_match("/" . str_replace(".jpg", "", $item2->name) . "-\d+\.jpg/", $item->name));
+  public function photo_rename_wont_accept_trailing_period_test() {
+    $item = test::random_photo_unsaved();
+    $item->name = "no_trailing_period_allowed.";
+    // Should fail on validate.
+    try {
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
+    } catch (ORM_Validation_Exception $e) {
+      $errors = $e->validation->errors();
+      $this->assert_same("no_trailing_period", $errors["name"]);
+    }
+    // Should be corrected on save.
+    $item->save();
+    $this->assert_equal("no_trailing_period_allowed.jpg", $item->name);
+    // Should be corrected on update.
+    $item->name = "no_trailing_period_allowed.";
+    $item->save();
+    $this->assert_equal("no_trailing_period_allowed.jpg", $item->name);
+  }
+
+  public function album_rename_wont_accept_slash_test() {
+    $item = test::random_album_unsaved();
+    $item->name = "/no_album_slashes/allowed/";
+    // Should fail on validate.
+    try {
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
+    } catch (ORM_Validation_Exception $e) {
+      $errors = $e->validation->errors();
+      $this->assert_same("no_slashes", $errors["name"]);
+    }
+    // Should be corrected on save.
+    $item->save();
+    $this->assert_equal("no_album_slashes_allowed", $item->name);
+    // Should be corrected on update.
+    $item->name = "/no_album_slashes/allowed/";
+    $item->save();
+    $this->assert_equal("no_album_slashes_allowed", $item->name);
+  }
+
+  public function album_rename_wont_accept_backslash_test() {
+    $item = test::random_album_unsaved();
+    $item->name = "\\no_album_backslashes\\allowed\\";
+    // Should fail on validate.
+    try {
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
+    } catch (ORM_Validation_Exception $e) {
+      $errors = $e->validation->errors();
+      $this->assert_same("no_backslashes", $errors["name"]);
+    }
+    // Should be corrected on save.
+    $item->save();
+    $this->assert_equal("no_album_backslashes_allowed", $item->name);
+    // Should be corrected on update.
+    $item->name = "\\no_album_backslashes\\allowed\\";
+    $item->save();
+    $this->assert_equal("no_album_backslashes_allowed", $item->name);
+  }
+
+  public function album_rename_wont_accept_trailing_period_test() {
+    $item = test::random_album_unsaved();
+    $item->name = ".no_trailing_period.allowed.";
+    // Should fail on validate.
+    try {
+      $item->validate();
+      $this->assert_true(false, "Shouldn't get here");
+    } catch (ORM_Validation_Exception $e) {
+      $errors = $e->validation->errors();
+      $this->assert_same("no_trailing_period", $errors["name"]);
+    }
+    // Should be corrected on save.
+    $item->save();
+    $this->assert_equal(".no_trailing_period.allowed", $item->name);
+    // Should be corrected on update.
+    $item->name = ".no_trailing_period.allowed.";
+    $item->save();
+    $this->assert_equal(".no_trailing_period.allowed", $item->name);
   }
 
   public function move_album_test() {
     $album2 = test::random_album();
     $album1 = test::random_album($album2);
-    $photo = test::random_photo($album1);
+    $photo = test::random_unique_photo($album1);
 
-    file_put_contents($photo->thumb_path(), "thumb");
-    file_put_contents($photo->resize_path(), "resize");
-    file_put_contents($photo->file_path(), "file");
+    $thumb_file = file_get_contents($photo->thumb_path());
+    $resize_file = file_get_contents($photo->resize_path());
+    $fullsize_file = file_get_contents($photo->file_path());
 
     // Now move the album
     $album1->parent_id = item::root()->id;
@@ -173,20 +268,20 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $this->assert_true(test::starts_with($photo->thumb_path(), dirname($album1->thumb_path())));
     $this->assert_true(test::starts_with($photo->resize_path(), dirname($album1->resize_path())));
 
-    $this->assert_equal("thumb", file_get_contents($photo->thumb_path()));
-    $this->assert_equal("resize", file_get_contents($photo->resize_path()));
-    $this->assert_equal("file", file_get_contents($photo->file_path()));
+    $this->assert_equal($thumb_file, file_get_contents($photo->thumb_path()));
+    $this->assert_equal($resize_file, file_get_contents($photo->resize_path()));
+    $this->assert_equal($fullsize_file, file_get_contents($photo->file_path()));
   }
 
   public function move_photo_test() {
     $album1 = test::random_album();
-    $photo  = test::random_photo($album1);
+    $photo  = test::random_unique_photo($album1);
 
     $album2 = test::random_album();
 
-    file_put_contents($photo->thumb_path(), "thumb");
-    file_put_contents($photo->resize_path(), "resize");
-    file_put_contents($photo->file_path(), "file");
+    $thumb_file = file_get_contents($photo->thumb_path());
+    $resize_file = file_get_contents($photo->resize_path());
+    $fullsize_file = file_get_contents($photo->file_path());
 
     // Now move the photo
     $photo->parent_id = $album2->id;
@@ -200,12 +295,12 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $this->assert_true(test::starts_with($photo->thumb_path(), dirname($album2->thumb_path())));
     $this->assert_true(test::starts_with($photo->resize_path(), dirname($album2->resize_path())));
 
-    $this->assert_equal("thumb", file_get_contents($photo->thumb_path()));
-    $this->assert_equal("resize", file_get_contents($photo->resize_path()));
-    $this->assert_equal("file", file_get_contents($photo->file_path()));
+    $this->assert_equal($thumb_file, file_get_contents($photo->thumb_path()));
+    $this->assert_equal($resize_file, file_get_contents($photo->resize_path()));
+    $this->assert_equal($fullsize_file, file_get_contents($photo->file_path()));
   }
 
-  public function move_album_with_conflicting_target_gets_uniqified_test() {
+  public function move_album_with_conflicting_target_gets_uniquified_test() {
     $album = test::random_album();
     $source = test::random_album_unsaved($album);
     $source->name = $album->name;
@@ -217,9 +312,9 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $source->parent_id = item::root()->id;
     $source->save();
 
-    // foo should become foo-####
-    $this->assert_true(preg_match("/{$album->name}-\d+/", $source->name));
-    $this->assert_true(preg_match("/{$album->slug}-\d+/", $source->slug));
+    // foo should become foo-01
+    $this->assert_same("{$album->name}-01", $source->name);
+    $this->assert_same("{$album->slug}-01", $source->slug);
   }
 
   public function move_album_fails_wrong_target_type_test() {
@@ -239,7 +334,7 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $this->assert_true(false, "Shouldn't get here");
   }
 
-  public function move_photo_with_conflicting_target_gets_uniqified_test() {
+  public function move_photo_with_conflicting_target_gets_uniquified_test() {
     $photo1 = test::random_photo();
     $album = test::random_album();
     $photo2 = test::random_photo_unsaved($album);
@@ -247,17 +342,16 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $photo2->save();
 
     // $photo1 and $photo2 have the same name, so if we move $photo1 into the root they should
-    // conflict and get uniqified.
+    // conflict and get uniquified.
 
     $photo2->parent_id = item::root()->id;
     $photo2->save();
 
-    // foo.jpg should become foo-####.jpg
-    $this->assert_true(
-      preg_match("/" . str_replace(".jpg", "", $photo1->name) . "-\d+\.jpg/", $photo2->name));
+    // foo.jpg should become foo-01.jpg
+    $this->assert_same(pathinfo($photo1->name, PATHINFO_FILENAME) . "-01.jpg", $photo2->name);
 
-    // foo should become foo
-    $this->assert_true(preg_match("/{$photo1->slug}/", $photo2->name));
+    // foo should become foo-01
+    $this->assert_same("{$photo1->slug}-01", $photo2->slug);
   }
 
   public function move_album_inside_descendent_fails_test() {
@@ -342,30 +436,17 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
   }
 
   public function photo_files_must_have_an_extension_test() {
-    try {
-      $photo = test::random_photo_unsaved();
-      $photo->mime_type = "image/jpeg";
-      $photo->name = "no_extension";
-      $photo->save();
-    } catch (ORM_Validation_Exception $e) {
-      $this->assert_same(array("name" => "illegal_data_file_extension"), $e->validation->errors());
-      return;  // pass
-    }
-    $this->assert_true(false, "Shouldn't get here");
+    $photo = test::random_photo_unsaved();
+    $photo->name = "no_extension_photo";
+    $photo->save();
+    $this->assert_equal("no_extension_photo.jpg", $photo->name);
   }
 
   public function movie_files_must_have_an_extension_test() {
-    try {
-      $movie = test::random_photo_unsaved();
-      $movie->type = "movie";
-      $movie->mime_type = "video/x-flv";
-      $movie->name = "no_extension";
-      $movie->save();
-    } catch (ORM_Validation_Exception $e) {
-      $this->assert_same(array("name" => "illegal_data_file_extension"), $e->validation->errors());
-      return;  // pass
-    }
-    $this->assert_true(false, "Shouldn't get here");
+    $movie = test::random_movie_unsaved();
+    $movie->name = "no_extension_movie";
+    $movie->save();
+    $this->assert_equal("no_extension_movie.flv", $movie->name);
   }
 
   public function cant_delete_root_album_test() {
@@ -394,12 +475,23 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $response = item::root()->as_restful_array();
     $this->assert_true($response["can_edit"]);
 
+    access::deny(identity::everybody(), "edit", item::root());
     identity::set_active_user(identity::guest());
     $response = item::root()->as_restful_array();
     $this->assert_false($response["can_edit"]);
   }
 
-  public function first_photo_becomes_album_cover() {
+  public function as_restful_array_with_add_bit_test() {
+    $response = item::root()->as_restful_array();
+    $this->assert_true($response["can_add"]);
+
+    access::deny(identity::everybody(), "add", item::root());
+    identity::set_active_user(identity::guest());
+    $response = item::root()->as_restful_array();
+    $this->assert_false($response["can_add"]);
+  }
+
+  public function first_photo_becomes_album_cover_test() {
     $album = test::random_album();
     $photo = test::random_photo($album);
     $album->reload();
@@ -450,8 +542,21 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
       $photo->set_data_file(MODPATH . "gallery/tests/Item_Model_Test.php");
       $photo->save();
     } catch (ORM_Validation_Exception $e) {
-      $this->assert_same(array("mime_type" => "invalid", "name" => "illegal_data_file_extension"),
-                         $e->validation->errors());
+      $this->assert_same(array("name" => "invalid_data_file"), $e->validation->errors());
+      return;  // pass
+    }
+    $this->assert_true(false, "Shouldn't get here");
+  }
+
+  public function unsafe_data_file_replacement_with_valid_extension_test() {
+    $temp_file = TMPPATH . "masquerading_php.jpg";
+    copy(MODPATH . "gallery/tests/Item_Model_Test.php", $temp_file);
+    try {
+      $photo = test::random_photo();
+      $photo->set_data_file($temp_file);
+      $photo->save();
+    } catch (ORM_Validation_Exception $e) {
+      $this->assert_same(array("name" => "invalid_data_file"), $e->validation->errors());
       return;  // pass
     }
     $this->assert_true(false, "Shouldn't get here");
@@ -469,55 +574,72 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
       preg_match("|http://./var/albums/name_\w+\.jpg\?m=\d+|", $photo->file_url()),
       $photo->file_url() . " is malformed");
 
-    // Albums have special thumbnails.  Empty album has cachebuster of 0 since it has no thumbnail
     $album = test::random_album();
     $this->assert_true(
-      preg_match("|http://./var/thumbs/name_\w+/\.album\.jpg\?m=0|", $album->thumb_url()),
+      preg_match("|http://./var/thumbs/name_\w+/\.album\.jpg\?m=\d+|", $album->thumb_url()),
       $album->thumb_url() . " is malformed");
 
     $photo = test::random_photo($album);
     $this->assert_true(
       preg_match("|http://./var/thumbs/name_\w+/\.album\.jpg\?m=\d+|", $album->thumb_url()),
       $album->thumb_url() . " is malformed");
+
+    // If the file does not exist, we should return a cache buster of m=0.
+    unlink($album->thumb_path());
+    $this->assert_true(
+      preg_match("|http://./var/thumbs/name_\w+/\.album\.jpg\?m=0|", $album->thumb_url()),
+      $album->thumb_url() . " is malformed");
   }
 
-  public function legal_extension_test() {
-    foreach (array("test.gif", "test.GIF", "test.Gif", "test.jpeg", "test.JPG") as $name) {
+  public function legal_extension_that_does_match_gets_used_test() {
+    foreach (array("jpg", "JPG", "Jpg", "jpeg") as $extension) {
       $photo = test::random_photo_unsaved(item::root());
-      $photo->name = $name;
+      $photo->name = test::random_name() . ".{$extension}";
       $photo->save();
+      // Should get renamed with the correct jpg extension of the data file.
+      $this->assert_equal($extension, pathinfo($photo->name, PATHINFO_EXTENSION));
     }
   }
 
   public function illegal_extension_test() {
     foreach (array("test.php", "test.PHP", "test.php5", "test.php4",
                    "test.pl", "test.php.png") as $name) {
-      try {
-        $photo = test::random_photo_unsaved(item::root());
-        $photo->name = $name;
-        $photo->save();
-      } catch (ORM_Validation_Exception $e) {
-        $this->assert_equal(array("name" => "illegal_data_file_extension"),
-                            $e->validation->errors());
-        continue;
-      }
-      $this->assert_true(false, "Shouldn't get here");
+      $photo = test::random_photo_unsaved(item::root());
+      $photo->name = $name;
+      $photo->save();
+      // Should get renamed with the correct jpg extension of the data file.
+      $this->assert_equal("jpg", pathinfo($photo->name, PATHINFO_EXTENSION));
     }
   }
 
   public function cant_rename_to_illegal_extension_test() {
     foreach (array("test.php.test", "test.php", "test.PHP",
                    "test.php5", "test.php4", "test.pl") as $name) {
-      try {
-        $photo = test::random_photo(item::root());
-        $photo->name = $name;
-        $photo->save();
-      } catch (ORM_Validation_Exception $e) {
-        $this->assert_equal(array("name" => "illegal_data_file_extension"),
-                            $e->validation->errors());
-        continue;
-      }
-      $this->assert_true(false, "Shouldn't get here");
+      $photo = test::random_photo(item::root());
+      $photo->name = $name;
+      $photo->save();
+      // Should get renamed with the correct jpg extension of the data file.
+      $this->assert_equal("jpg", pathinfo($photo->name, PATHINFO_EXTENSION));
+    }
+  }
+
+  public function legal_extension_that_doesnt_match_gets_fixed_test() {
+    foreach (array("test.png", "test.mp4", "test.GIF") as $name) {
+      $photo = test::random_photo_unsaved(item::root());
+      $photo->name = $name;
+      $photo->save();
+      // Should get renamed with the correct jpg extension of the data file.
+      $this->assert_equal("jpg", pathinfo($photo->name, PATHINFO_EXTENSION));
+    }
+  }
+
+  public function rename_to_legal_extension_that_doesnt_match_gets_fixed_test() {
+    foreach (array("test.png", "test.mp4", "test.GIF") as $name) {
+      $photo = test::random_photo(item::root());
+      $photo->name = $name;
+      $photo->save();
+      // Should get renamed with the correct jpg extension of the data file.
+      $this->assert_equal("jpg", pathinfo($photo->name, PATHINFO_EXTENSION));
     }
   }
 
@@ -525,5 +647,165 @@ class Item_Model_Test extends Gallery_Unit_Test_Case {
     $album = test::random_album_unsaved(item::root());
     $album->name = $album->name . ".foo.bar";
     $album->save();
+  }
+
+  public function no_conflict_when_parents_different_test() {
+    $parent1 = test::random_album();
+    $parent2 = test::random_album();
+    $photo1 = test::random_photo($parent1);
+    $photo2 = test::random_photo($parent2);
+
+    $photo2->name = $photo1->name;
+    $photo2->slug = $photo1->slug;
+    $photo2->save();
+
+    // photo2 has same name and slug as photo1 but different parent - no conflict.
+    $this->assert_same($photo1->name, $photo2->name);
+    $this->assert_same($photo1->slug, $photo2->slug);
+  }
+
+  public function fix_conflict_when_names_identical_test() {
+    $parent = test::random_album();
+    $photo1 = test::random_photo($parent);
+    $photo2 = test::random_photo($parent);
+
+    $photo1_orig_base = pathinfo($photo1->name, PATHINFO_FILENAME);
+    $photo2_orig_slug = $photo2->slug;
+
+    $photo2->name = $photo1->name;
+    $photo2->save();
+
+    // photo2 has same name as photo1 - conflict resolved by renaming with -01.
+    $this->assert_same("{$photo1_orig_base}-01.jpg", $photo2->name);
+    $this->assert_same("{$photo2_orig_slug}-01", $photo2->slug);
+  }
+
+  public function fix_conflict_when_slugs_identical_test() {
+    $parent = test::random_album();
+    $photo1 = test::random_photo($parent);
+    $photo2 = test::random_photo($parent);
+
+    $photo2_orig_base = pathinfo($photo2->name, PATHINFO_FILENAME);
+
+    $photo2->slug = $photo1->slug;
+    $photo2->save();
+
+    // photo2 has same slug as photo1 - conflict resolved by renaming with -01.
+    $this->assert_same("{$photo2_orig_base}-01.jpg", $photo2->name);
+    $this->assert_same("{$photo1->slug}-01", $photo2->slug);
+  }
+
+  public function no_conflict_when_parents_different_for_albums_test() {
+    $parent1 = test::random_album();
+    $parent2 = test::random_album();
+    $album1 = test::random_album($parent1);
+    $album2 = test::random_album($parent2);
+
+    $album2->name = $album1->name;
+    $album2->slug = $album1->slug;
+    $album2->save();
+
+    // album2 has same name and slug as album1 but different parent - no conflict.
+    $this->assert_same($album1->name, $album2->name);
+    $this->assert_same($album1->slug, $album2->slug);
+  }
+
+  public function fix_conflict_when_names_identical_for_albums_test() {
+    $parent = test::random_album();
+    $album1 = test::random_album($parent);
+    $album2 = test::random_album($parent);
+
+    $album2_orig_slug = $album2->slug;
+
+    $album2->name = $album1->name;
+    $album2->save();
+
+    // album2 has same name as album1 - conflict resolved by renaming with -01.
+    $this->assert_same("{$album1->name}-01", $album2->name);
+    $this->assert_same("{$album2_orig_slug}-01", $album2->slug);
+  }
+
+  public function fix_conflict_when_slugs_identical_for_albums_test() {
+    $parent = test::random_album();
+    $album1 = test::random_album($parent);
+    $album2 = test::random_album($parent);
+
+    $album2_orig_name = $album2->name;
+
+    $album2->slug = $album1->slug;
+    $album2->save();
+
+    // album2 has same slug as album1 - conflict resolved by renaming with -01.
+    $this->assert_same("{$album2_orig_name}-01", $album2->name);
+    $this->assert_same("{$album1->slug}-01", $album2->slug);
+  }
+
+  public function no_conflict_when_base_names_identical_between_album_and_photo_test() {
+    $parent = test::random_album();
+    $album = test::random_album($parent);
+    $photo = test::random_photo($parent);
+
+    $photo_orig_slug = $photo->slug;
+
+    $photo->name = "{$album->name}.jpg";
+    $photo->save();
+
+    // photo has same base name as album - no conflict.
+    $this->assert_same("{$album->name}.jpg", $photo->name);
+    $this->assert_same($photo_orig_slug, $photo->slug);
+  }
+
+  public function fix_conflict_when_full_names_identical_between_album_and_photo_test() {
+    $parent = test::random_album();
+    $photo = test::random_photo($parent);
+    $album = test::random_album($parent);
+
+    $album_orig_slug = $album->slug;
+
+    $album->name = $photo->name;
+    $album->save();
+
+    // album has same full name as album - conflict resolved by renaming with -01.
+    $this->assert_same("{$photo->name}-01", $album->name);
+    $this->assert_same("{$album_orig_slug}-01", $album->slug);
+  }
+
+  public function fix_conflict_when_slugs_identical_between_album_and_photo_test() {
+    $parent = test::random_album();
+    $album = test::random_album($parent);
+    $photo = test::random_photo($parent);
+
+    $photo_orig_base = pathinfo($photo->name, PATHINFO_FILENAME);
+
+    $photo->slug = $album->slug;
+    $photo->save();
+
+    // photo has same slug as album - conflict resolved by renaming with -01.
+    $this->assert_same("{$photo_orig_base}-01.jpg", $photo->name);
+    $this->assert_same("{$album->slug}-01", $photo->slug);
+  }
+
+  public function fix_conflict_when_base_names_identical_between_jpg_png_flv_test() {
+    $parent = test::random_album();
+    $item1 = test::random_photo($parent);
+    $item2 = test::random_photo($parent);
+    $item3 = test::random_movie($parent);
+
+    $item1_orig_base = pathinfo($item1->name, PATHINFO_FILENAME);
+    $item2_orig_slug = $item2->slug;
+    $item3_orig_slug = $item3->slug;
+
+    $item2->set_data_file(MODPATH . "gallery/images/graphicsmagick.png");
+    $item2->name = "{$item1_orig_base}.png";
+    $item2->save();
+
+    $item3->name = "{$item1_orig_base}.flv";
+    $item3->save();
+
+    // item2 and item3 have same base name as item1 - conflict resolved by renaming with -01 and -02.
+    $this->assert_same("{$item1_orig_base}-01.png", $item2->name);
+    $this->assert_same("{$item2_orig_slug}-01", $item2->slug);
+    $this->assert_same("{$item1_orig_base}-02.flv", $item3->name);
+    $this->assert_same("{$item3_orig_slug}-02", $item3->slug);
   }
 }

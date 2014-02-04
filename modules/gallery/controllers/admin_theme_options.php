@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ class Admin_Theme_Options_Controller extends Admin_Controller {
       module::set_var("gallery", "page_size", $form->edit_theme->page_size->value);
 
       $thumb_size = $form->edit_theme->thumb_size->value;
-      $thumb_dirty = false;
       if (module::get_var("gallery", "thumb_size") != $thumb_size) {
         graphics::remove_rule("gallery", "thumb", "gallery_graphics::resize");
         graphics::add_rule(
@@ -45,7 +44,6 @@ class Admin_Theme_Options_Controller extends Admin_Controller {
       }
 
       $resize_size = $form->edit_theme->resize_size->value;
-      $resize_dirty = false;
       if (module::get_var("gallery", "resize_size") != $resize_size) {
         graphics::remove_rule("gallery", "resize", "gallery_graphics::resize");
         graphics::add_rule(
@@ -55,11 +53,17 @@ class Admin_Theme_Options_Controller extends Admin_Controller {
         module::set_var("gallery", "resize_size", $resize_size);
       }
 
-      module::set_var("gallery", "header_text", $form->edit_theme->header_text->value);
-      module::set_var("gallery", "footer_text", $form->edit_theme->footer_text->value);
       module::set_var("gallery", "show_credits", $form->edit_theme->show_credits->value);
-      module::set_var("gallery", "favicon_url", $form->edit_theme->favicon_url->value);
-      module::set_var("gallery", "apple_touch_icon_url", $form->edit_theme->apple_touch_icon_url->value);
+
+      // Sanitize values that get placed directly in HTML output by theme.
+      module::set_var("gallery", "header_text",
+        html::purify($form->edit_theme->header_text->value));
+      module::set_var("gallery", "footer_text",
+        html::purify($form->edit_theme->footer_text->value));
+      module::set_var("gallery", "favicon_url",
+        html::purify($form->edit_theme->favicon_url->value));
+      module::set_var("gallery", "apple_touch_icon_url",
+        html::purify($form->edit_theme->apple_touch_icon_url->value));
 
       module::event("theme_edit_form_completed", $form);
 

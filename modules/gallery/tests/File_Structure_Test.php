@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -132,7 +132,7 @@ class File_Structure_Test extends Gallery_Unit_Test_Case {
         "<?php defined(\"SYSPATH\") or die(\"No direct script access.\");",
         "/**",
         " * Gallery - a web based photo album viewer and editor",
-        " * Copyright (C) 2000-2012 Bharat Mediratta",
+        " * Copyright (C) 2000-2013 Bharat Mediratta",
         " *",
         " * This program is free software; you can redistribute it and/or modify",
         " * it under the terms of the GNU General Public License as published by",
@@ -173,6 +173,12 @@ class File_Structure_Test extends Gallery_Unit_Test_Case {
       case DOCROOT . "index.php":
       case DOCROOT . "installer/index.php":
         // Front controllers
+        break;
+
+      case DOCROOT . "lib/uploadify/uploadify.swf.php":
+      case DOCROOT . "lib/uploadify/uploadify.allglyphs.swf.php":
+      case DOCROOT . "lib/mediaelementjs/flashmediaelement.swf.php":
+        // SWF wrappers - directly accessible
         break;
 
       case DOCROOT . "local.php":
@@ -282,5 +288,53 @@ class File_Structure_Test extends Gallery_Unit_Test_Case {
     if ($errors) {
       $this->assert_true(false, $errors);
     }
+  }
+
+  public function all_public_functions_in_test_files_end_in_test() {
+    // Who tests the tests?  :-)   (ref: http://www.xkcd.com/1163)
+    $dir = new PhpCodeFilterIterator(
+      new GalleryCodeFilterIterator(
+        new RecursiveIteratorIterator(
+          new RecursiveDirectoryIterator(DOCROOT))));
+    foreach ($dir as $file) {
+      $scan = 0;
+      if (basename(dirname($file)) == "tests") {
+        foreach (file($file) as $line) {
+          if (!substr($file, -9, 9) == "_Test.php") {
+            continue;
+          }
+
+          if (preg_match("/class.*extends.*Gallery_Unit_Test_Case/", $line)) {
+            $scan = 1;
+          } else if (preg_match("/class.*extends/", $line)) {
+            $scan = 0;
+          }
+
+          if ($scan) {
+            if (preg_match("/^\s*public\s+function/", $line)) {
+              $this->assert_true(
+                preg_match("/^\s*public\s+function (setup|teardown|.*_test)\(\) {/", $line),
+                "public functions must end in _test:\n$file\n$line\n");
+            }
+          }
+        }
+      }
+    }
+  }
+
+  public function no_extra_spaces_at_end_of_line_test() {
+    $dir = new GalleryCodeFilterIterator(
+      new RecursiveIteratorIterator(new RecursiveDirectoryIterator(DOCROOT)));
+    $errors = "";
+    foreach ($dir as $file) {
+      if (preg_match("/\.(php|css|html|js)$/", $file)) {
+        foreach (file($file) as $line_num => $line) {
+          if ((substr($line, -2) == " \n") || (substr($line, -1) == " ")) {
+            $errors .= "$file at line " . ($line_num + 1) . "\n";
+          }
+        }
+      }
+    }
+    $this->assert_true(empty($errors), "Extra spaces at end of line found at:\n$errors");
   }
 }

@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,6 @@ class exif_installer {
                  PRIMARY KEY (`id`),
                  KEY(`item_id`))
                DEFAULT CHARSET=utf8;");
-    module::set_version("exif", 1);
   }
 
   static function activate() {

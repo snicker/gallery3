@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ class SafeString_Test extends Gallery_Unit_Test_Case {
 
   public function purify_test() {
     $safe_string = SafeString::purify("hello <p  >world</p>");
-    $expected = method_exists("purifier", "purify")
+    $expected = (class_exists("purifier") && method_exists("purifier", "purify"))
       ? "hello <p>world</p>"
       : "hello &lt;p  &gt;world&lt;/p&gt;";
     $this->assert_equal($expected, $safe_string);
@@ -100,7 +100,7 @@ class SafeString_Test extends Gallery_Unit_Test_Case {
   public function purify_twice_test() {
     $safe_string = SafeString::purify("hello <p  >world</p>");
     $safe_string_2 = SafeString::purify($safe_string);
-    $expected = method_exists("purifier", "purify")
+    $expected = (class_exists("purifier") && method_exists("purifier", "purify"))
       ? "hello <p>world</p>"
       : "hello &lt;p  &gt;world&lt;/p&gt;";
     $this->assert_equal($expected, $safe_string_2);

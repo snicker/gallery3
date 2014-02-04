@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ class task_Core {
     $tasks = array();
     foreach (module::active() as $module) {
       $class_name = "{$module->name}_task";
-      if (method_exists($class_name, "available_tasks")) {
+      if (class_exists($class_name) && method_exists($class_name, "available_tasks")) {
         foreach (call_user_func(array($class_name, "available_tasks")) as $task) {
           $tasks[$task->callback] = $task;
         }

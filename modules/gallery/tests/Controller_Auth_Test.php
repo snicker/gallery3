@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +20,9 @@
 class Controller_Auth_Test extends Gallery_Unit_Test_Case {
   public function find_missing_auth_test() {
     $found = array();
-    $controllers = explode("\n", `git ls-files '*/*/controllers/*.php'`);
-    $feeds = explode("\n", `git ls-files '*/*/helpers/*_rss.php'`);
+    $git_ignores = explode("\n", `git ls-files -o -i --exclude-standard`);
+    $controllers = array_diff(glob("*/*/controllers/*.php"), $git_ignores);
+    $feeds = array_diff(glob("*/*/helpers/*_rss.php"), $git_ignores);
     foreach (array_merge($controllers, $feeds) as $controller) {
       if (preg_match("{modules/(gallery_)?unit_test/}", $controller)) {
         continue;
@@ -46,6 +47,10 @@ class Controller_Auth_Test extends Gallery_Unit_Test_Case {
       $function = null;
       for ($token_number = 0; $token_number < count($tokens); $token_number++) {
         $token = $tokens[$token_number];
+        if (self::_token_matches(array(T_CURLY_OPEN), $tokens, $token_number)) {
+          // Treat this just like a normal open curly brace
+          $token = "{";
+        }
 
         // Count braces.
         // 1 open brace  = in class context.

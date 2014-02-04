@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,9 @@ abstract class Database extends Database_Core {
       $config["connection"]["params"] = null;
     }
     parent::__construct($config);
+    if (gallery::show_profiler()) {
+      $this->config['benchmark'] = true;
+    }
   }
 
   /**
@@ -84,5 +87,15 @@ abstract class Database extends Database_Core {
    */
   static function set_default_instance($db) {
     self::$instances["default"] = $db;
+  }
+
+  /**
+   * Escape LIKE queries, add wildcards.  In MySQL queries using LIKE, _ and % characters are
+   * treated as wildcards similar to ? and *, respectively.  Therefore, we need to escape _, %,
+   * and \ (the escape character itself).
+   */
+  static function escape_for_like($value) {
+    // backslash must go first to avoid double-escaping
+    return addcslashes($value, '\_%');
   }
 }

@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,8 @@ class Admin_Watermarks_Controller extends Admin_Controller {
     } else {
       json::reply(array("result" => "error", "html" => (string)$form));
     }
+    // Override the application/json mime type for iframe compatibility.  See ticket #2022.
+    header("Content-Type: text/plain; charset=" . Kohana::CHARSET);
   }
 
   public function form_delete() {
@@ -66,8 +68,8 @@ class Admin_Watermarks_Controller extends Admin_Controller {
 
     $form = watermark::get_delete_form();
     if ($form->validate()) {
-      if ($name = module::get_var("watermark", "name")) {
-        @unlink(VARPATH . "modules/watermark/$name");
+      if ($name = basename(module::get_var("watermark", "name"))) {
+        system::delete_later(VARPATH . "modules/watermark/$name");
 
         module::clear_var("watermark", "name");
         module::clear_var("watermark", "width");
@@ -83,6 +85,8 @@ class Admin_Watermarks_Controller extends Admin_Controller {
     } else {
       json::reply(array("result" => "error", "html" => (string)$form));
     }
+    // Override the application/json mime type for iframe compatibility.  See ticket #2022.
+    header("Content-Type: text/plain; charset=" . Kohana::CHARSET);
   }
 
   public function form_add() {
@@ -93,60 +97,43 @@ class Admin_Watermarks_Controller extends Admin_Controller {
     access::verify_csrf();
 
     $form = watermark::get_add_form();
-    if ($form->validate()) {
+    // For TEST_MODE, we want to simulate a file upload.  Because this is not a true upload, Forge's
+    // validation logic will correctly reject it.  So, we skip validation when we're running tests.
+    if (TEST_MODE || $form->validate()) {
       $file = $_POST["file"];
-      $pathinfo = pathinfo($file);
       // Forge prefixes files with "uploadfile-xxxxxxx" for uniqueness
-      $name = preg_replace("/uploadfile-[^-]+-(.*)/", '$1', $pathinfo["basename"]);
-      $name = legal_file::smash_extensions($name);
+      $name = preg_replace("/uploadfile-[^-]+-(.*)/", '$1', basename($file));
 
-      if (!($image_info = getimagesize($file)) ||
-          !in_array($image_info[2], array(IMAGETYPE_GIF, IMAGETYPE_JPEG, IMAGETYPE_PNG))) {
-        message::error(t("Unable to identify this image file"));
-        @unlink($file);
+      try {
+        list ($width, $height, $mime_type, $extension) = photo::get_file_metadata($file);
+        // Sanitize filename, which ensures a valid extension.  This renaming prevents the issues
+        // addressed in ticket #1855, where an image that looked valid (header said jpg) with a
+        // php extension was previously accepted without changing its extension.
+        $name = legal_file::sanitize_filename($name, $extension, "photo");
+      } catch (Exception $e) {
+        message::error(t("Invalid or unidentifiable image file"));
+        system::delete_later($file);
         return;
-      }
-
-      if (!in_array($pathinfo["extension"], legal_file::get_photo_extensions())) {
-        switch ($image_info[2]) {
-        case IMAGETYPE_GIF:
-          $name = legal_file::change_extension($name, "gif");
-          break;
-        case IMAGETYPE_JPEG:
-          $name = legal_file::change_extension($name, "jpg");
-          break;
-        case IMAGETYPE_PNG:
-          $name = legal_file::change_extension($name, "png");
-          break;
-        }
       }
 
       rename($file, VARPATH . "modules/watermark/$name");
       module::set_var("watermark", "name", $name);
-      module::set_var("watermark", "width", $image_info[0]);
-      module::set_var("watermark", "height", $image_info[1]);
-      module::set_var("watermark", "mime_type", $image_info["mime"]);
+      module::set_var("watermark", "width", $width);
+      module::set_var("watermark", "height", $height);
+      module::set_var("watermark", "mime_type", $mime_type);
       module::set_var("watermark", "position", $form->add_watermark->position->value);
       module::set_var("watermark", "transparency", $form->add_watermark->transparency->value);
       $this->_update_graphics_rules();
-      @unlink($file);
+      system::delete_later($file);
 
       message::success(t("Watermark saved"));
       log::success("watermark", t("Watermark saved"));
       json::reply(array("result" => "success", "location" => url::site("admin/watermarks")));
     } else {
-      // rawurlencode the results because the JS code that uploads the file buffers it in an
-      // iframe which entitizes the HTML and makes it difficult for the JS to process.  If we url
-      // encode it now, it passes through cleanly.  See ticket #797.
-      json::reply(array("result" => "error", "html" => rawurlencode((string)$form)));
+      json::reply(array("result" => "error", "html" => (string)$form));
     }
-
-    // Override the application/json mime type.  The dialog based HTML uploader uses an iframe to
-    // buffer the reply, and on some browsers (Firefox 3.6) it does not know what to do with the
-    // JSON that it gets back so it puts up a dialog asking the user what to do with it.  So force
-    // the encoding type back to HTML for the iframe.
-    // See: http://jquery.malsup.com/form/#file-upload
-    header("Content-Type: text/html; charset=" . Kohana::CHARSET);
+    // Override the application/json mime type for iframe compatibility.  See ticket #2022.
+    header("Content-Type: text/plain; charset=" . Kohana::CHARSET);
   }
 
   private function _update_graphics_rules() {

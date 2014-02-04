@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ class Rest_Controller extends Controller {
         $request->params = (object) $input->post();
         if (isset($_FILES["file"])) {
           $request->file = upload::save("file");
-          Event::add("system.shutdown", create_function("", "unlink(\"{$request->file}\");"));
+          system::delete_later($request->file);
         }
         break;
       }
@@ -98,7 +98,7 @@ class Rest_Controller extends Controller {
       $handler_class = "{$function}_rest";
       $handler_method = $request->method;
 
-      if (!method_exists($handler_class, $handler_method)) {
+      if (!class_exists($handler_class) || !method_exists($handler_class, $handler_method)) {
         throw new Rest_Exception("Bad Request", 400);
       }
 

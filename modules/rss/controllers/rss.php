@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ class Rss_Controller extends Controller {
     // Run the appropriate feed callback
     if (module::is_active($module_id)) {
       $class_name = "{$module_id}_rss";
-      if (method_exists($class_name, "feed")) {
+      if (class_exists($class_name) && method_exists($class_name, "feed")) {
         $feed = call_user_func(
           array($class_name, "feed"), $feed_id,
           ($page - 1) * $page_size, $page_size, $id);

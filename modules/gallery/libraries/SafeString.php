@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -153,7 +153,7 @@ class SafeString_Core {
    * Purify the string, removing any potentially malicious or unsafe HTML / JavaScript.
    */
   private static function _purify_for_html($dirty_html) {
-    if (method_exists("purifier", "purify")) {
+    if (class_exists("purifier") && method_exists("purifier", "purify")) {
       return purifier::purify($dirty_html);
     } else {
       return self::_escape_for_html($dirty_html);

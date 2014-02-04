@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@ class Upgrader_Controller extends Controller {
     $view->available = module::available();
     $view->failed = $failed ? explode(",", $failed) : array();
     $view->done = $available_upgrades == 0;
+    $view->obsolete_modules_message = module::get_obsolete_modules_message();
     print $view;
   }
 
@@ -107,7 +108,11 @@ class Upgrader_Controller extends Controller {
         print "Upgrade complete\n";
       }
     } else {
-      url::redirect("upgrader?failed=" . join(",", $failed));
+      if ($failed) {
+        url::redirect("upgrader?failed=" . join(",", $failed));
+      } else {
+        url::redirect("upgrader");
+      }
     }
   }
 }

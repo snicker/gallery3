@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,61 +39,29 @@ class item_Core {
       }
     }
 
-    $source->parent_id = $target->id;
-
-    // Moving may result in name or slug conflicts.  If that happens, try up to 5 times to pick a
-    // random name (or slug) to avoid the conflict.
     $orig_name = $source->name;
-    $orig_name_filename = pathinfo($source->name, PATHINFO_FILENAME);
-    $orig_name_extension = pathinfo($source->name, PATHINFO_EXTENSION);
-    $orig_slug = $source->slug;
-    for ($i = 0; $i < 5; $i++) {
-      try {
-        $source->save();
-        if ($orig_name != $source->name) {
-          switch ($source->type) {
-          case "album":
-            message::info(
-              t("Album <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
-                array("old_name" => $orig_name, "new_name" => $source->name)));
-            break;
-
-          case "photo":
-            message::info(
-              t("Photo <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
-                array("old_name" => $orig_name, "new_name" => $source->name)));
-            break;
-
-          case "movie":
-            message::info(
-              t("Movie <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
-                array("old_name" => $orig_name, "new_name" => $source->name)));
-            break;
-          }
-        }
+    $source->parent_id = $target->id;
+    $source->save();
+    if ($orig_name != $source->name) {
+      switch ($source->type) {
+      case "album":
+        message::info(
+          t("Album <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
+            array("old_name" => $orig_name, "new_name" => $source->name)));
         break;
-      } catch (ORM_Validation_Exception $e) {
-        $rand = rand(10, 99);
-        $errors = $e->validation->errors();
-        if (isset($errors["name"])) {
-          $source->name = $orig_name_filename . "-{$rand}." . $orig_name_extension;
-          unset($errors["name"]);
-        }
-        if (isset($errors["slug"])) {
-          $source->slug = $orig_slug . "-{$rand}";
-          unset($errors["slug"]);
-        }
 
-        if ($errors) {
-          // There were other validation issues-- we don't know how to handle those
-          throw $e;
-        }
+      case "photo":
+        message::info(
+          t("Photo <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
+            array("old_name" => $orig_name, "new_name" => $source->name)));
+        break;
+
+      case "movie":
+        message::info(
+          t("Movie <b>%old_name</b> renamed to <b>%new_name</b> to avoid a conflict",
+            array("old_name" => $orig_name, "new_name" => $source->name)));
+        break;
       }
-    }
-
-    // If the target has no cover item, make this it.
-    if ($target->album_cover_item_id == null)  {
-      item::make_album_cover($source);
     }
   }
 
@@ -103,34 +71,42 @@ class item_Core {
     access::required("view", $parent);
     access::required("edit", $parent);
 
+    $old_album_cover_id = $parent->album_cover_item_id;
+
     model_cache::clear();
     $parent->album_cover_item_id = $item->is_album() ? $item->album_cover_item_id : $item->id;
-    if ($item->thumb_dirty) {
-      $parent->thumb_dirty = 1;
-      graphics::generate($parent);
-    } else {
-      copy($item->thumb_path(), $parent->thumb_path());
-      $parent->thumb_width = $item->thumb_width;
-      $parent->thumb_height = $item->thumb_height;
-    }
     $parent->save();
+    graphics::generate($parent);
+
+    // Walk up the parent hierarchy and set album covers if necessary
     $grand_parent = $parent->parent();
     if ($grand_parent && access::can("edit", $grand_parent) &&
         $grand_parent->album_cover_item_id == null)  {
       item::make_album_cover($parent);
+    }
+
+    // When albums are album covers themselves, we hotlink directly to the target item.  This
+    // means that when we change an album cover, the grandparent may have a deep link to the old
+    // album cover.  So find any parent albums that had the old item as their album cover and
+    // switch them over to the new item.
+    if ($old_album_cover_id) {
+      foreach ($item->parents(array(array("album_cover_item_id", "=", $old_album_cover_id)))
+               as $ancestor) {
+        if (access::can("edit", $ancestor)) {
+          $ancestor->album_cover_item_id = $parent->album_cover_item_id;
+          $ancestor->save();
+          graphics::generate($ancestor);
+        }
+      }
     }
   }
 
   static function remove_album_cover($album) {
     access::required("view", $album);
     access::required("edit", $album);
-    @unlink($album->thumb_path());
 
     model_cache::clear();
     $album->album_cover_item_id = null;
-    $album->thumb_width = 0;
-    $album->thumb_height = 0;
-    $album->thumb_dirty = 1;
     $album->save();
     graphics::generate($album);
   }
@@ -224,10 +200,18 @@ class item_Core {
   /**
    * Find an item by its path.  If there's no match, return an empty Item_Model.
    * NOTE: the caller is responsible for performing security checks on the resulting item.
+   *
+   * In addition to $path, $var_subdir can be specified ("albums", "resizes", or "thumbs").  This
+   * corresponds to the file's directory in var, which is what's used in file_proxy.  By specifying
+   * this, we can be smarter about items whose formats get converted (e.g. movies that get jpg
+   * thumbs).  If omitted, it defaults to "albums" which looks for identical matches between $path
+   * and the item name, just like pre-v3.1 behavior.
+   *
    * @param string $path
+   * @param string $var_subdir
    * @return object Item_Model
    */
-  static function find_by_path($path) {
+  static function find_by_path($path, $var_subdir="albums") {
     $path = trim($path, "/");
 
     // The root path name is NULL not "", hence this workaround.
@@ -235,34 +219,79 @@ class item_Core {
       return item::root();
     }
 
+    $search_full_name = true;
+    $album_thumb = false;
+    if (($var_subdir == "thumbs") && preg_match("|^(.*)/\.album\.jpg$|", $path, $matches)) {
+      // It's an album thumb - remove "/.album.jpg" from the path.
+      $path = $matches[1];
+      $album_thumb = true;
+    } else if (($var_subdir != "albums") && preg_match("/^(.*)\.jpg$/", $path, $matches)) {
+      // Item itself could be non-jpg (e.g. movies) - remove .jpg from path, don't search full name.
+      $path = $matches[1];
+      $search_full_name = false;
+    }
+
     // Check to see if there's an item in the database with a matching relative_path_cache value.
-    // Since that field is urlencoded, we must urlencoded the components of the path.
+    // Since that field is urlencoded, we must urlencode the components of the path.
     foreach (explode("/", $path) as $part) {
       $encoded_array[] = rawurlencode($part);
     }
     $encoded_path = join("/", $encoded_array);
-    $item = ORM::factory("item")
-      ->where("relative_path_cache", "=", $encoded_path)
-      ->find();
-    if ($item->loaded()) {
-      return $item;
+    if ($search_full_name) {
+      $item = ORM::factory("item")
+        ->where("relative_path_cache", "=", $encoded_path)
+        ->find();
+      // See if the item was found and if it should have been found.
+      if ($item->loaded() &&
+          (($var_subdir == "albums") || $item->is_photo() || $album_thumb)) {
+        return $item;
+      }
+    } else {
+      // Note that the below query uses LIKE with wildcard % at end, which is still sargable and
+      // therefore still takes advantage of the indexed relative_path_cache (i.e. still quick).
+      $item = ORM::factory("item")
+        ->where("relative_path_cache", "LIKE", Database::escape_for_like($encoded_path) . ".%")
+        ->find();
+      // See if the item was found and should be a jpg.
+      if ($item->loaded() &&
+          (($item->is_movie() && ($var_subdir == "thumbs")) ||
+           ($item->is_photo() && (preg_match("/^(.*)\.jpg$/", $item->name))))) {
+        return $item;
+      }
     }
 
     // Since the relative_path_cache field is a cache, it can be unavailable.  If we don't find
     // anything, fall back to checking the path the hard way.
     $paths = explode("/", $path);
-    foreach (ORM::factory("item")
-             ->where("name", "=", end($paths))
-             ->where("level", "=", count($paths) + 1)
-             ->find_all() as $item) {
-      if (urldecode($item->relative_path()) == $path) {
-        return $item;
+    if ($search_full_name) {
+      foreach (ORM::factory("item")
+               ->where("name", "=", end($paths))
+               ->where("level", "=", count($paths) + 1)
+               ->find_all() as $item) {
+        // See if the item was found and if it should have been found.
+        if ((urldecode($item->relative_path()) == $path) &&
+            (($var_subdir == "albums") || $item->is_photo() || $album_thumb)) {
+          return $item;
+        }
+      }
+    } else {
+      foreach (ORM::factory("item")
+               ->where("name", "LIKE", Database::escape_for_like(end($paths)) . ".%")
+               ->where("level", "=", count($paths) + 1)
+               ->find_all() as $item) {
+        // Compare relative_path without extension (regexp same as legal_file::change_extension),
+        // see if it should be a jpg.
+        if ((preg_replace("/\.[^\.\/]*?$/", "", urldecode($item->relative_path())) == $path) &&
+            (($item->is_movie() && ($var_subdir == "thumbs")) ||
+             ($item->is_photo() && (preg_match("/^(.*)\.jpg$/", $item->name))))) {
+          return $item;
+        }
       }
     }
 
+    // Nothing found - return an empty item model.
     return new Item_Model();
   }
-
 
   /**
    * Locate an item using the URL.  We assume that the url is in the form /a/b/c where each
@@ -438,5 +467,17 @@ class item_Core {
       $args = array($item);
     }
     return call_user_func_array($callback, $args);
+  }
+
+  /**
+   * Reset all child weights of a given album to a monotonically increasing sequence based on the
+   * current sort order of the album.
+   */
+  static function resequence_child_weights($album) {
+    $weight = 0;
+    foreach ($album->children() as $child) {
+      $child->weight = ++$weight;
+      $child->save();
+    }
   }
 }

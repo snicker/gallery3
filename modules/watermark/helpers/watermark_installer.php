@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@ class watermark_installer {
                DEFAULT CHARSET=utf8;");
 
     @mkdir(VARPATH . "modules/watermark");
-    module::set_version("watermark", 2);
   }
 
   static function uninstall() {

@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ class PhpCodeFilterIterator extends FilterIterator {
 
 class GalleryCodeFilterIterator extends FilterIterator {
   public function accept() {
-    // Skip anything that we didn"t write
+    // Skip anything that we didn't write
     $path_name = $this->getInnerIterator()->getPathName();
     $file_name = $this->getInnerIterator()->getFileName();
     return !(
@@ -47,6 +47,10 @@ class GalleryCodeFilterIterator extends FilterIterator {
       strpos($path_name, SYSPATH) !== false ||
       strpos($path_name, MODPATH . "gallery/libraries/HTMLPurifier") !== false ||
       strpos($path_name, MODPATH . "gallery/vendor/joomla") !== false ||
+      strpos($path_name, MODPATH . "organize/vendor/ext") !== false ||
+      strpos($path_name, DOCROOT . "lib") !== false ||
+      strpos($path_name, DOCROOT . "themes/admin_wind/css/themeroller") !== false ||
+      strpos($path_name, DOCROOT . "themes/wind/css/themeroller") !== false ||
       substr($path_name, -1, 1) == "~");
   }
 }

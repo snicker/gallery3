@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ class item_rest_Core {
     }
 
     if (isset($p->name)) {
-      $orm->where("name", "LIKE", "%{$p->name}%");
+      $orm->where("name", "LIKE", "%" . Database::escape_for_like($p->name) . "%");
     }
 
     if (isset($p->type)) {

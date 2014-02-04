@@ -17,7 +17,7 @@
           <a id="dialog_close_link" style="display: none" onclick="$('#dialog').fadeOut(); return false;" href="#" class="close">[x]</a>
           <div id="busy" style="display: none">
             <h1>
-              <img width="16" height="16" src="<?= url::file("themes/wind/images/loading-small.gif") ?>"/>
+              <img width="16" height="16" src="<?= url::file("modules/gallery/images/loading-small.gif") ?>"/>
               <?= t("Upgrade in progress!") ?>
             </h1>
             <p>
@@ -90,6 +90,15 @@
         </div>
         <? endif ?>
 
+        <? if ($obsolete_modules_message): ?>
+        <div id="obsolete_modules_message">
+          <p>
+            <span class="failed"><?= t("Warning!") ?></span>
+            <?= $obsolete_modules_message ?>
+          </p>
+        </div>
+        <? endif ?>
+
         <table>
           <tr class="<?= $done ? "muted" : "" ?>">
             <th class="name"> <?= t("Module name") ?> </th>
@@ -144,8 +153,8 @@
         <p>
           <em>
             <?= t("Did something go wrong? Try the <a href=\"%faq_url\">FAQ</a> or ask in the <a href=\"%forums_url\">Gallery forums</a>.",
-                array("faq_url" => "http://codex.gallery2.org/Gallery3:FAQ",
-                      "forums_url" => "http://gallery.menalto.com/forum")) ?>
+                array("faq_url" => "http://codex.galleryproject.org/Gallery3:FAQ",
+                      "forums_url" => "http://galleryproject.org/forum")) ?>
           </em>
         </p>
       </div>

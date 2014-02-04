@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -138,7 +138,9 @@ class installer {
       $char += ($char > 90) ? 13 : ($char > 57) ? 7 : 0;
       $salt .= chr($char);
     }
-    $password = substr(md5(time() . mt_rand()), 0, 6);
+    if (!$password = $config["g3_password"]) {
+      $password = substr(md5(time() . mt_rand()), 0, 6);
+    }
     // Escape backslash in preparation for our UPDATE statement.
     $hashed_password = str_replace("\\", "\\\\", $salt . md5($salt . $password));
     $sql = self::prepend_prefix($config["prefix"],

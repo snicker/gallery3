@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ class Cache_Database_Driver extends Cache_Driver {
       ->select()
       ->from("caches");
     foreach ($tags as $tag) {
-      $db->where("tags", "LIKE", "%<$tag>%");
+      $db->where("tags", "LIKE", "%" . Database::escape_for_like("<$tag>") . "%");
     }
     $db_result = $db->execute();
 
@@ -139,7 +139,7 @@ class Cache_Database_Driver extends Cache_Driver {
       // Delete all caches
     } else if ($is_tag === true) {
       foreach ($keys as $tag) {
-        $db->where("tags", "LIKE", "%<$tag>%");
+        $db->where("tags", "LIKE", "%" . Database::escape_for_like("<$tag>") . "%");
       }
     } else {
       $db->where("key", "IN", $keys);

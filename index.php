@@ -1,7 +1,7 @@
 <?php
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,8 +34,8 @@ if (!ini_get("date.timezone")) {
 !ini_get("short_open_tag") and exit("Gallery requires short_open_tag to be on.");
 
 // Suppress errors.  For information on how to debug Gallery 3, see:
-// http://codex.gallery2.org/Gallery3:FAQ#How_do_I_see_debug_information.3F
-// error_reporting(0);
+// http://codex.galleryproject.org/Gallery3:FAQ#How_do_I_see_debug_information.3F
+error_reporting(0);
 
 // Disabling display_errors will  effectively disable Kohana error display
 // and logging. You can turn off Kohana errors in application/config/config.php
@@ -88,7 +88,7 @@ if (PHP_SAPI == "cli") {
 
   default:
     print "To install:\n";
-    print "  php index.php install -d database -h host -u user -p password -x table_prefix \n\n";
+    print "  php index.php install -d database -h host -u user -p password -x table_prefix -g3p gallery3_admin_password \n\n";
     print "To upgrade:\n";
     print "  php index.php upgrade\n\n";
     print "Developer-only features:\n";
@@ -101,7 +101,7 @@ if (PHP_SAPI == "cli") {
   define("TEST_MODE", 0);
   define("VARPATH", realpath("var") . "/");
 }
-define("TMPPATH", VARPATH . "/tmp/");
+define("TMPPATH", VARPATH . "tmp/");
 
 if (file_exists("local.php")) {
   include("local.php");

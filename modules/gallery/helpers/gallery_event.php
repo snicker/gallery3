@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,6 +34,41 @@ class gallery_event_Core {
     identity::load_user();
     theme::load_themes();
     locales::set_request_locale();
+  }
+
+  static function gallery_shutdown() {
+    // Every 500th request, do a pass over var/logs and var/tmp and delete old files.
+    // Limit ourselves to deleting a single file so that we don't spend too much CPU
+    // time on it.  As long as servers call this at least twice a day they'll eventually
+    // wind up with a clean var/logs directory because we only create 1 file a day there.
+    // var/tmp might be stickier because theoretically we could wind up spamming that
+    // dir with a lot of files.  But let's start with this and refine as we go.
+    if (!(rand() % 500)) {
+      // Note that this code is roughly duplicated in gallery_task::file_cleanup
+      $threshold = time() - 1209600; // older than 2 weeks
+      foreach(array("logs", "tmp") as $dir) {
+        $dir = VARPATH . $dir;
+        if ($dh = opendir($dir)) {
+          while (($file = readdir($dh)) !== false) {
+            if ($file[0] == ".") {
+              continue;
+            }
+
+            // Ignore directories for now, but we should really address them in the long term.
+            if (is_dir("$dir/$file")) {
+              continue;
+            }
+
+            if (filemtime("$dir/$file") <= $threshold) {
+              unlink("$dir/$file");
+              break;
+            }
+          }
+        }
+      }
+    }
+    // Delete all files marked using system::delete_later.
+    system::delete_marked_files();
   }
 
   static function user_deleted($user) {
@@ -86,17 +121,17 @@ class gallery_event_Core {
   static function item_created($item) {
     access::add_item($item);
 
-    if ($item->is_photo() || $item->is_movie()) {
-      // Build our thumbnail/resizes.
-      try {
-        graphics::generate($item);
-      } catch (Exception $e) {
-        log::error("graphics", t("Couldn't create a thumbnail or resize for %item_title",
-                                 array("item_title" => $item->title)),
-                   html::anchor($item->abs_url(), t("details")));
-        Kohana_Log::add("error", $e->getMessage() . "\n" . $e->getTraceAsString());
-      }
+    // Build our thumbnail/resizes.
+    try {
+      graphics::generate($item);
+    } catch (Exception $e) {
+      log::error("graphics", t("Couldn't create a thumbnail or resize for %item_title",
+                               array("item_title" => $item->title)),
+                 html::anchor($item->abs_url(), t("details")));
+      Kohana_Log::add("error", $e->getMessage() . "\n" . $e->getTraceAsString());
+    }
 
+    if ($item->is_photo() || $item->is_movie()) {
       // If the parent has no cover item, make this it.
       $parent = $item->parent();
       if (access::can("edit", $parent) && $parent->album_cover_item_id == null)  {
@@ -141,10 +176,9 @@ class gallery_event_Core {
     foreach (ORM::factory("item")
              ->where("album_cover_item_id", "=", $item->id)
              ->find_all() as $target) {
-      copy($item->thumb_path(), $target->thumb_path());
-      $target->thumb_width = $item->thumb_width;
-      $target->thumb_height = $item->thumb_height;
+      $target->thumb_dirty = 1;
       $target->save();
+      graphics::generate($target);
     }
   }
 
@@ -347,9 +381,9 @@ class gallery_event_Core {
             if (($item->type == "album" && empty($item->album_cover_item_id)) ||
                 ($item->type == "album" && $parent->album_cover_item_id == $item->album_cover_item_id) ||
                 $parent->album_cover_item_id == $item->id) {
-              $disabledState = " ui-state-disabled";
+              $disabledState = "ui-state-disabled";
             } else {
-              $disabledState = " ";
+              $disabledState = "";
             }
 
             if ($item->parent()->id != 1) {
@@ -358,7 +392,7 @@ class gallery_event_Core {
                   Menu::factory("ajax_link")
                   ->id("make_album_cover")
                   ->label(t("Choose as the album cover"))
-                  ->css_class("ui-icon-star")
+                  ->css_class("ui-icon-star $disabledState")
                   ->ajax_handler("function(data) { window.location.reload() }")
                   ->url(url::site("quick/make_album_cover/$item->id?csrf=$csrf")));
             }
@@ -399,6 +433,10 @@ class gallery_event_Core {
                         ->id("graphics_toolkits")
                         ->label(t("Graphics"))
                         ->url(url::site("admin/graphics")))
+               ->append(Menu::factory("link")
+                        ->id("movies_settings")
+                        ->label(t("Movies"))
+                        ->url(url::site("admin/movies")))
                ->append(Menu::factory("link")
                         ->id("languages")
                         ->label(t("Languages"))
@@ -501,16 +539,16 @@ class gallery_event_Core {
         if (($item->type == "album" && empty($item->album_cover_item_id)) ||
             ($item->type == "album" && $parent->album_cover_item_id == $item->album_cover_item_id) ||
             $parent->album_cover_item_id == $item->id) {
-          $disabledState = " ui-state-disabled";
+          $disabledState = "ui-state-disabled";
         } else {
-          $disabledState = " ";
+          $disabledState = "";
         }
         if ($item->parent()->id != 1) {
           $options_menu
             ->append(Menu::factory("ajax_link")
                      ->id("make_album_cover")
                      ->label($cover_title)
-                     ->css_class("ui-icon-star")
+                     ->css_class("ui-icon-star $disabledState")
                      ->ajax_handler("function(data) { window.location.reload() }")
                      ->url(url::site("quick/make_album_cover/$item->id?csrf=$csrf")));
         }
@@ -519,7 +557,8 @@ class gallery_event_Core {
                    ->id("delete")
                    ->label($delete_title)
                    ->css_class("ui-icon-trash")
-                   ->url(url::site("quick/form_delete/$item->id?csrf=$csrf&amp;from_id={$theme_item->id}&amp;page_type=$page_type")));
+                   ->url(url::site("quick/form_delete/$item->id?csrf=$csrf&amp;" .
+                                   "from_id={$theme_item->id}&amp;page_type=$page_type")));
       }
 
       if ($item->is_album()) {

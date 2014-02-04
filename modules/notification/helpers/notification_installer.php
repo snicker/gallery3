@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,8 +36,6 @@ class notification_installer {
                `text` text,
                PRIMARY KEY (`id`))
                DEFAULT CHARSET=utf8;");
-
-    module::set_version("notification", 2);
   }
 
   static function upgrade($version) {

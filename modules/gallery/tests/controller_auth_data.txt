@@ -1,6 +1,5 @@
 modules/comment/controllers/admin_manage_comments.php        queue                DIRTY_CSRF
 modules/comment/helpers/comment_rss.php                      feed                 DIRTY_AUTH
-modules/digibug/controllers/digibug.php                      print_proxy          DIRTY_CSRF|DIRTY_AUTH
 modules/g2_import/controllers/admin_g2_import.php            autocomplete         DIRTY_CSRF
 modules/g2_import/controllers/g2.php                         map                  DIRTY_CSRF
 modules/gallery/controllers/admin.php                        __call               DIRTY_AUTH
@@ -25,6 +24,7 @@ modules/gallery/controllers/user_profile.php                 send               
 modules/gallery/controllers/welcome_message.php              index                DIRTY_AUTH
 modules/organize/controllers/organize.php                    tree                 DIRTY_CSRF
 modules/organize/controllers/organize.php                    delete               DIRTY_AUTH
+modules/organize/controllers/organize.php                    tag                  DIRTY_AUTH
 modules/rest/controllers/rest.php                            index                DIRTY_CSRF|DIRTY_AUTH
 modules/rest/controllers/rest.php                            reset_api_key_confirm DIRTY_AUTH
 modules/rest/controllers/rest.php                            reset_api_key        DIRTY_AUTH
@@ -35,7 +35,9 @@ modules/server_add/controllers/admin_server_add.php          autocomplete       
 modules/server_add/controllers/server_add.php                children             DIRTY_CSRF
 modules/tag/controllers/admin_tags.php                       index                DIRTY_CSRF
 modules/tag/controllers/tag.php                              __call               DIRTY_CSRF|DIRTY_AUTH
+modules/tag/controllers/tag_name.php                         __call               DIRTY_AUTH
 modules/tag/controllers/tags.php                             autocomplete         DIRTY_CSRF|DIRTY_AUTH
+modules/tag/helpers/tag_rss.php                              feed                 DIRTY_AUTH
 modules/user/controllers/admin_users.php                     index                DIRTY_CSRF
 modules/user/controllers/password.php                        reset                DIRTY_AUTH
 modules/user/controllers/password.php                        do_reset             DIRTY_CSRF|DIRTY_AUTH

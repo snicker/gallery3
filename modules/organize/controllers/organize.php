@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -129,12 +129,8 @@ class Organize_Controller extends Controller {
 
     if ($album->sort_column != "weight") {
       // Force all the weights into the current order before changing the order to manual
-      $weight = 0;
-      foreach ($album->children() as $child) {
-        $child->weight = ++$weight;
-        $child->save();
-      }
-
+      // @todo: consider making this a trigger in the Item_Model.
+      item::resequence_child_weights($album);
       $album->sort_column = "weight";
       $album->sort_order = "ASC";
       $album->save();
@@ -158,7 +154,7 @@ class Organize_Controller extends Controller {
       // Move all the source items to the right spots.
       for ($i = 0; $i < count($source_ids); $i++) {
         $source = ORM::factory("item", $source_ids[$i]);
-        if ($source->parent_id = $album->id) {
+        if ($source->parent_id == $album->id) {
           $source->weight = $base_weight + $i;
           $source->save();
         }
@@ -176,6 +172,28 @@ class Organize_Controller extends Controller {
       $item = ORM::factory("item", $item_id);
       if (access::can("edit", $item)) {
         $item->delete();
+      }
+    }
+
+    json::reply(null);
+  }
+
+  function tag() {
+    access::verify_csrf();
+    $input = Input::instance();
+
+    foreach (explode(",", $input->post("item_ids")) as $item_id) {
+      $item = ORM::factory("item", $item_id);
+      if (access::can("edit", $item)) {
+        // Assuming the user can view/edit the current item, loop
+        // through each tag that was submitted and apply it to
+        // the current item.
+        foreach (explode(",", $input->post("tag_names")) as $tag_name) {
+          $tag_name = trim($tag_name);
+          if ($tag_name) {
+            tag::add($item, $tag_name);
+          }
+        }
       }
     }
 

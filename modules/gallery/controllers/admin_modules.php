@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ class Admin_Modules_Controller extends Admin_Controller {
     $view->page_title = t("Modules");
     $view->content = new View("admin_modules.html");
     $view->content->available = module::available();
+    $view->content->obsolete_modules_message = module::get_obsolete_modules_message();
     print $view;
   }
 

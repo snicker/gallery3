@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,6 +86,7 @@ class Tag_Controller extends Controller {
                  "previous_item" => $previous_item,
                  "next_item" => $next_item,
                  "sibling_count" => $tag->items_count($where),
+                 "siblings_callback" => array(array($tag, "items"), array()),
                  "breadcrumbs" => array(
                    Breadcrumb::instance($root->title, $root->url())->set_first(),
                    Breadcrumb::instance(t("Tag: %tag_name", array("tag_name" => $tag->name)),

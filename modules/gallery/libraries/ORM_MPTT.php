@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -152,8 +152,9 @@ class ORM_MPTT_Core extends ORM {
    *
    * @return array ORM
    */
-  function parents() {
+  function parents($where=null) {
     return $this
+      ->merge_where($where)
       ->where("left_ptr", "<=", $this->left_ptr)
       ->where("right_ptr", ">=", $this->right_ptr)
       ->where("id", "<>", $this->id)
@@ -324,7 +325,7 @@ class ORM_MPTT_Core extends ORM {
    * Lock the tree to prevent concurrent modification.
    */
   protected function lock() {
-    $timeout = module::get_var("gallery", "lock_timeout");
+    $timeout = module::get_var("gallery", "lock_timeout", 1);
     $result = $this->db->query("SELECT GET_LOCK('{$this->table_name}', $timeout) AS l")->current();
     if (empty($result->l)) {
       throw new Exception("@todo UNABLE_TO_LOCK_EXCEPTION");

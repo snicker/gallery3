@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ class info_block_Core {
       if ($theme->item()) {
         $block = new Block();
         $block->css_id = "g-metadata";
-        $block->title = $theme->item()->is_album() ? t("Album info") : 
+        $block->title = $theme->item()->is_album() ? t("Album info") :
           ($theme->item()->is_movie() ? t("Movie info") : t("Photo info"));
         $block->content = new View("info_block.html");
         if ($theme->item->title && module::get_var("info", "show_title")) {
@@ -72,6 +72,13 @@ class info_block_Core {
             );
           }
         }
+        if (($theme->item->width && $theme->item->height) && module::get_var("info", "show_dimensions")) {
+            $info["size"] = array(
+                "label" => t("Dimensions:"),
+                "value" => t("%width x %height px", array("width" => $theme->item->width, "height" => $theme->item->height))
+            );
+        }
+
         $block->content->metadata = $info;
 
         module::event("info_block_get_metadata", $block, $theme->item);

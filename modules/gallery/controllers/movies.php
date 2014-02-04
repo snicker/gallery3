@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ class Movies_Controller extends Items_Controller {
 
       log::success("content", "Updated movie", "<a href=\"{$movie->url()}\">view</a>");
       message::success(
-        t("Saved movie %movie_title", array("movie_title" => $movie->title)));
+        t("Saved movie %movie_title", array("movie_title" => html::purify($movie->title))));
 
       if ($form->from_id->value == $movie->id) {
         // Use the new url; it might have changed.

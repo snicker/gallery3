@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -498,7 +498,7 @@ class g2_import_Core {
     $album->description = self::_decode_html_special_chars(self::extract_description($g2_album));
     $album->owner_id = self::map($g2_album->getOwnerId());
     try {
-      $album->view_count = (int) g2(GalleryCoreApi::fetchItemViewCount($g2_album_id));
+      $album->view_count = (int) g2(GalleryCoreApi::fetchItemViewCount($g2_album->getId()));
     } catch (Exception $e) {
       // @todo log
       $album->view_count = 0;
@@ -1055,7 +1055,7 @@ class g2_import_Core {
           if (@copy(g2($derivative->fetchPath()), $item->thumb_path())) {
             $item->thumb_height = $derivative->getHeight();
             $item->thumb_width = $derivative->getWidth();
-            $item->thumb_dirty = false;
+            $item->thumb_dirty = 0;
           }
         }
 
@@ -1066,7 +1066,7 @@ class g2_import_Core {
           if (@copy(g2($derivative->fetchPath()), $item->resize_path())) {
             $item->resize_height = $derivative->getHeight();
             $item->resize_width = $derivative->getWidth();
-            $item->resize_dirty = false;
+            $item->resize_dirty = 0;
           }
         }
       }

@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,8 +78,8 @@ function oops($message) {
   print "==> " . $message;
   print "\n";
   print "For help you can try:\n";
-  print "  * The Gallery 3 FAQ   - http://codex.gallery2.org/Gallery3:FAQ\n";
-  print "  * The Gallery Forums - http://gallery.menalto.com/forum\n";
+  print "  * The Gallery 3 FAQ   - http://codex.galleryproject.org/Gallery3:FAQ\n";
+  print "  * The Gallery Forums - http://galleryproject.org/forum\n";
   print "\n\n** INSTALLATION FAILED **\n";
   exit(1);
 }
@@ -90,6 +90,7 @@ function parse_cli_params() {
                   "password" => "",
                   "dbname" => "gallery3",
                   "prefix" => "",
+                  "g3_password" => "",
                   "type" => function_exists("mysqli_set_charset") ? "mysqli" : "mysql");
 
   $argv = $_SERVER["argv"];
@@ -109,6 +110,9 @@ function parse_cli_params() {
       break;
     case "-x":
       $config["prefix"] = $argv[++$i];
+      break;
+    case "-g3p":
+      $config["g3_password"] = $argv[++$i];
       break;
     }
   }

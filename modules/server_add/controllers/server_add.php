@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ class Server_Add_Controller extends Admin_Controller {
         }
         if (!is_dir($file)) {
           $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-          if (!in_array($ext, array("gif", "jpeg", "jpg", "png", "flv", "mp4", "m4v"))) {
+          if (!legal_file::get_extensions($ext)) {
             continue;
           }
         }
@@ -164,8 +164,7 @@ class Server_Add_Controller extends Admin_Controller {
           foreach ($child_paths as $child_path) {
             if (!is_dir($child_path)) {
               $ext = strtolower(pathinfo($child_path, PATHINFO_EXTENSION));
-              if (!in_array($ext, array("gif", "jpeg", "jpg", "png", "flv", "mp4", "m4v")) ||
-                  !filesize($child_path)) {
+              if (!legal_file::get_extensions($ext) || !filesize($child_path)) {
                 // Not importable, skip it.
                 continue;
               }
@@ -275,34 +274,7 @@ class Server_Add_Controller extends Admin_Controller {
         } else {
           try {
             $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-
-            $entry_exists = 0;
-            if(module::get_var("server_add", "skip_duplicates")) {
-              $entry_exists = ORM::factory("server_add_entry")
-                ->where("is_directory", "=", 0)
-                ->where("item_id", "IS NOT", null)
-                ->where("path", "=", $entry->path)
-                ->find();
-            }
-            if ($entry_exists && $entry_exists->loaded()) {
-              // skip adding an image
-              $task->log("Entry exists: {$entry->path}");
-              if(module::get_var("server_add", "process_updates")) {
-                $task->log("Entry exists, processing update {$entry_exists->item_id}: {$entry->path}");
-                if($entry_exists->md5 != $entry->md5) {
-                  $item = ORM::factory("item", $entry_exists->item_id);
-                  if($item->loaded()) {
-                    $task->log("Entry exists, set data file {$item->id}: {$entry->path} ");
-                    $item->set_data_file($entry->path);
-                    $item->save();
-                    $entry_exists->md5 = $entry->md5;
-                    $entry_exists->save();
-                  }
-                }
-              }
-              $entry->item_id = 0;
-              //$task->log("Skipping existing item: {$entry->path}");
-            } elseif (in_array($extension, array("gif", "png", "jpg", "jpeg"))) {
+            if (legal_file::get_photo_extensions($extension)) {
               $photo = ORM::factory("item");
               $photo->type = "photo";
               $photo->parent_id = $parent->id;
@@ -312,7 +284,7 @@ class Server_Add_Controller extends Admin_Controller {
               $photo->owner_id = $owner_id;
               $photo->save();
               $entry->item_id = $photo->id;
-            } else if (in_array($extension, array("flv", "mp4", "m4v"))) {
+            } else if (legal_file::get_movie_extensions($extension)) {
               $movie = ORM::factory("item");
               $movie->type = "movie";
               $movie->parent_id = $parent->id;

@@ -1,7 +1,7 @@
 <?php defined("SYSPATH") or die("No direct script access.");
 /**
  * Gallery - a web based photo album viewer and editor
- * Copyright (C) 2000-2012 Bharat Mediratta
+ * Copyright (C) 2000-2013 Bharat Mediratta
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,18 +48,17 @@ class Tags_Controller extends Controller {
 
   public function autocomplete() {
     $tags = array();
-    $tag_parts = explode(",", Input::instance()->get("q"));
-    $limit = Input::instance()->get("limit");
+    $tag_parts = explode(",", Input::instance()->get("term"));
     $tag_part = ltrim(end($tag_parts));
     $tag_list = ORM::factory("tag")
-      ->where("name", "LIKE", "{$tag_part}%")
+      ->where("name", "LIKE", Database::escape_for_like($tag_part) . "%")
       ->order_by("name", "ASC")
-      ->limit($limit)
+      ->limit(100)
       ->find_all();
     foreach ($tag_list as $tag) {
-      $tags[] = html::clean($tag->name);
+      $tags[] = (string)html::clean($tag->name);
     }
 
-    ajax::response(implode("\n", $tags));
+    ajax::response(json_encode($tags));
   }
 }
